@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "luminle",
+  "project_id": "d6ae6233-9223-4700-a034-9ff8cc0bb0b3"
+}
