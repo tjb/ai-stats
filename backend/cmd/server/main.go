@@ -21,6 +21,7 @@ import (
 	"github.com/tjb/ai-stats/internal/handlers"
 	apimiddleware "github.com/tjb/ai-stats/internal/middleware"
 	"github.com/tjb/ai-stats/internal/scheduler"
+	"github.com/tjb/ai-stats/internal/web"
 )
 
 func main() {
@@ -112,6 +113,16 @@ func main() {
 
 	// Push ingest — API key auth, no JWT
 	r.Post("/api/ingest/events", h.Ingest.PostEvents)
+
+	// Frontend SPA for every path no route above matched (STATIC_DIR is set
+	// in the Docker image). Unset = API only, as in local dev with Vite.
+	if dir := os.Getenv("STATIC_DIR"); dir != "" {
+		spa, err := web.New(dir)
+		if err != nil {
+			log.Fatalf("STATIC_DIR: %v", err)
+		}
+		r.NotFound(spa.ServeHTTP)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {

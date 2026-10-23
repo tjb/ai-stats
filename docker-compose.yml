@@ -1,0 +1,42 @@
+# AI Stats: the app (Go API + React SPA in one container) and its Postgres.
+#
+#   cp .env.example .env   # then fill in the GitHub OAuth app and secrets
+#   docker compose up      # -> http://localhost:8080
+#
+# Migrations run automatically when the app starts. Data lives in the
+# "db-data" volume; `docker compose down -v` deletes it.
+name: ai-stats
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aistats}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aistats}
+      POSTGRES_DB: ${POSTGRES_DB:-aistats}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # Not published to the host: only the app container can reach it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      # Always the bundled db service; overrides any DATABASE_URL in .env.
+      DATABASE_URL: postgres://${POSTGRES_USER:-aistats}:${POSTGRES_PASSWORD:-aistats}@db:5432/${POSTGRES_DB:-aistats}?sslmode=disable
+
+volumes:
+  db-data:
