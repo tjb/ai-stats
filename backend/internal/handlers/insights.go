@@ -226,7 +226,11 @@ func (h *InsightsHandler) Get(w http.ResponseWriter, r *http.Request) {
 			prevPct = 100
 		}
 	}
-	deltaPP := math.Round((utilizationPct-prevPct)*10) / 10
+	// No prior-window denominator means nothing to compare against.
+	var deltaPP float64
+	if prevDevs > 0 {
+		deltaPP = math.Round((utilizationPct-prevPct)*10) / 10
+	}
 
 	toolBreakdown, err := h.queries.GetToolBreakdown(r.Context(), org.ID, 30)
 	if err != nil {
