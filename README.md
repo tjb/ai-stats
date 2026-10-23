@@ -133,6 +133,10 @@ separate migration step is required.
 
 See `backend/.env.example` and `frontend/.env.example` for all required variables.
 
+| Variable        | Default | Description                                                                                                                                                                         |
+| --------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SYNC_INTERVAL` | `1h`    | How often the backend re-syncs every connected org from GitHub in the background (the same work as **Sync now**). Go duration, minimum `1m`; `0` or `off` disables background sync. |
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev workflow, PR expectations, and how

@@ -20,6 +20,7 @@ import (
 	"github.com/tjb/ai-stats/internal/db"
 	"github.com/tjb/ai-stats/internal/handlers"
 	apimiddleware "github.com/tjb/ai-stats/internal/middleware"
+	"github.com/tjb/ai-stats/internal/scheduler"
 )
 
 func main() {
@@ -52,6 +53,14 @@ func main() {
 	authSvc := auth.NewService(queries, jwtSecret, githubOAuth)
 
 	h := handlers.New(queries, authSvc, jwtSecret)
+
+	// Background sync: re-runs "Sync now" for every org every SYNC_INTERVAL.
+	syncCfg, err := scheduler.ConfigFromEnv()
+	if err != nil {
+		log.Fatalf("scheduler: %v", err)
+	}
+	syncScheduler := scheduler.New(syncCfg, scheduler.NewBackend(queries))
+	syncScheduler.Start()
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -131,6 +140,10 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	// Stop background sync first so no run is still using the pool when it closes.
+	if err := syncScheduler.Stop(ctx); err != nil {
+		log.Print(err)
+	}
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("shutdown: %v", err)
 	}
