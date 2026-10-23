@@ -133,17 +133,16 @@ function ReportView({ report }: { report: Report }) {
 export function ShareablePage() {
   const { token } = useParams<{ token: string }>()
   const [report, setReport] = useState<Report | null>(null)
-  const [error, setError] = useState(false)
+  const [fetchFailed, setFetchFailed] = useState(false)
+  // A missing token is known at render time; only a failed fetch needs state.
+  const error = !token || fetchFailed
 
   useEffect(() => {
-    if (!token) {
-      setError(true)
-      return
-    }
+    if (!token) return
     reportsApi
       .getByShareToken(token)
       .then(setReport)
-      .catch(() => setError(true))
+      .catch(() => setFetchFailed(true))
   }, [token])
 
   return (
