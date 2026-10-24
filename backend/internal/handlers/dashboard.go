@@ -13,9 +13,9 @@ type DashboardHandler struct {
 }
 
 type DashboardResponse struct {
-	Org           orgSummary       `json:"org"`
-	Metrics       dashboardMetrics `json:"metrics"`
-	Charts        dashboardCharts  `json:"charts"`
+	Org     orgSummary       `json:"org"`
+	Metrics dashboardMetrics `json:"metrics"`
+	Charts  dashboardCharts  `json:"charts"`
 }
 
 type orgSummary struct {
@@ -27,22 +27,22 @@ type orgSummary struct {
 }
 
 type dashboardMetrics struct {
-	ActiveUsers         int     `json:"active_users"`
-	ActiveUsersChange   int     `json:"active_users_change"`
-	AcceptanceRate      float64 `json:"acceptance_rate"`
+	ActiveUsers          int     `json:"active_users"`
+	ActiveUsersChange    int     `json:"active_users_change"`
+	AcceptanceRate       float64 `json:"acceptance_rate"`
 	AcceptanceRateChange float64 `json:"acceptance_rate_change"`
-	LinesAccepted       int     `json:"lines_accepted"`
-	LinesAcceptedChange int     `json:"lines_accepted_change"`
-	HoursSaved          float64 `json:"hours_saved"`
-	DollarValueSaved    float64 `json:"dollar_value_saved"`
-	HourlyRate          int     `json:"hourly_rate"`
+	LinesAccepted        int     `json:"lines_accepted"`
+	LinesAcceptedChange  int     `json:"lines_accepted_change"`
+	HoursSaved           float64 `json:"hours_saved"`
+	DollarValueSaved     float64 `json:"dollar_value_saved"`
+	HourlyRate           int     `json:"hourly_rate"`
 }
 
 type dashboardCharts struct {
-	AcceptanceRate []chartPoint         `json:"acceptance_rate"`
-	ActiveUsers    []activeUserPoint    `json:"active_users"`
-	Suggestions    []suggestionPoint    `json:"suggestions"`
-	Languages      []languageRatePoint  `json:"languages"`
+	AcceptanceRate []chartPoint        `json:"acceptance_rate"`
+	ActiveUsers    []activeUserPoint   `json:"active_users"`
+	Suggestions    []suggestionPoint   `json:"suggestions"`
+	Languages      []languageRatePoint `json:"languages"`
 }
 
 type chartPoint struct {

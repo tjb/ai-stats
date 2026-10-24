@@ -6,8 +6,8 @@ const minutesPerAcceptedLine = 2
 
 // Result holds calculated ROI values.
 type Result struct {
-	MinutesSaved    float64 `json:"minutes_saved"`
-	HoursSaved      float64 `json:"hours_saved"`
+	MinutesSaved     float64 `json:"minutes_saved"`
+	HoursSaved       float64 `json:"hours_saved"`
 	DollarValueSaved float64 `json:"dollar_value_saved"`
 }
 
@@ -17,8 +17,8 @@ func Calculate(linesAccepted int, hourlyRate int) Result {
 	hours := minutes / 60
 	dollars := hours * float64(hourlyRate)
 	return Result{
-		MinutesSaved:    math.Round(minutes*10) / 10,
-		HoursSaved:      math.Round(hours*10) / 10,
+		MinutesSaved:     math.Round(minutes*10) / 10,
+		HoursSaved:       math.Round(hours*10) / 10,
 		DollarValueSaved: math.Round(dollars),
 	}
 }

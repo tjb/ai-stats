@@ -121,8 +121,8 @@ OAuth app's callback URL to match.
 
    ```bash
    cd backend
-   cp ../.env.example .env
-   # Fill in JWT_SECRET, ENCRYPTION_KEY, GITHUB_CLIENT_ID/SECRET and uncomment DATABASE_URL
+   cp .env.example .env
+   # Fill in JWT_SECRET, ENCRYPTION_KEY, GITHUB_CLIENT_ID/SECRET; check DATABASE_URL
    ```
 
    Generate `JWT_SECRET` and `ENCRYPTION_KEY` with:
@@ -145,7 +145,9 @@ OAuth app's callback URL to match.
 
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
 2. Create a new OAuth App
-3. Set the callback URL to `http://localhost:8080/api/auth/callback`
+3. Set the callback URL to `<APP_URL>/api/auth/callback`: `http://localhost:8080/api/auth/callback`
+   for Docker, `http://localhost:3000/api/auth/callback` for the manual setup (the Vite dev server
+   proxies `/api` to the Go server)
 4. Copy the Client ID and Client Secret into `.env` (Docker) or `backend/.env` (manual setup)
 
 **Required scopes:** `read:user`, `user:email`, `read:org`
@@ -189,7 +191,8 @@ separate migration step is required.
 
 ## Environment Variables
 
-See [`.env.example`](.env.example) for every variable the server reads, with comments. Required:
+See [`.env.example`](.env.example) (Docker) and [`backend/.env.example`](backend/.env.example)
+(manual setup) for every variable the server reads, with comments. Required:
 `APP_URL`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `JWT_SECRET`, `ENCRYPTION_KEY` and
 `DATABASE_URL` (set for you by `docker-compose.yml`). Optional: `PORT` (default `8080`) and
 `STATIC_DIR` (directory of the built frontend to serve; set in the Docker image). The frontend

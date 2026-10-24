@@ -17,15 +17,20 @@ See the [README](README.md#getting-started) for full local setup instructions.
 
 ```bash
 make dev-backend    # Go server on :8080
-make dev-frontend   # Vite dev server on :5173 (proxies /api to :8080)
+make dev-frontend   # Vite dev server on :3000 (proxies /api to :8080)
 ```
 
 ## Before opening a PR
 
 ```bash
-make lint-backend    # go vet
-make lint-frontend   # tsc + vite build
-cd backend && go test ./...
+make check   # gofmt, go vet, eslint, backend tests, frontend build — what CI runs
+```
+
+Backend integration tests need a Postgres role that can create databases; point
+`TEST_DATABASE_URL` at it (they skip when it is unset):
+
+```bash
+make test-backend TEST_DATABASE_URL=postgres://aistats:aistats@localhost:5432/aistats_test?sslmode=disable
 ```
 
 Keep PRs focused — one logical change per PR makes review much faster. If you're planning a

@@ -12,16 +12,16 @@ import (
 
 // DailyUsage mirrors the GitHub Copilot Usage API response shape.
 type DailyUsage struct {
-	Day                      string          `json:"day"`
-	TotalSuggestionsCount    int             `json:"total_suggestions_count"`
-	TotalAcceptancesCount    int             `json:"total_acceptances_count"`
-	TotalLinesSuggested      int             `json:"total_lines_suggested"`
-	TotalLinesAccepted       int             `json:"total_lines_accepted"`
-	TotalActiveUsers         int             `json:"total_active_users"`
-	TotalChatAcceptances     int             `json:"total_chat_acceptances"`
-	TotalChatTurns           int             `json:"total_chat_turns"`
-	TotalActiveChatUsers     int             `json:"total_active_chat_users"`
-	Breakdown                []db.BreakdownItem `json:"breakdown"`
+	Day                   string             `json:"day"`
+	TotalSuggestionsCount int                `json:"total_suggestions_count"`
+	TotalAcceptancesCount int                `json:"total_acceptances_count"`
+	TotalLinesSuggested   int                `json:"total_lines_suggested"`
+	TotalLinesAccepted    int                `json:"total_lines_accepted"`
+	TotalActiveUsers      int                `json:"total_active_users"`
+	TotalChatAcceptances  int                `json:"total_chat_acceptances"`
+	TotalChatTurns        int                `json:"total_chat_turns"`
+	TotalActiveChatUsers  int                `json:"total_active_chat_users"`
+	Breakdown             []db.BreakdownItem `json:"breakdown"`
 }
 
 // FetchCopilotUsage fetches the last `days` days of Copilot usage from GitHub.
