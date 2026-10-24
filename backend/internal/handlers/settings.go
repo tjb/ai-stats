@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/tjb/ai-stats/internal/auth"
@@ -246,11 +247,12 @@ func (h *SettingsHandler) CreateIngestKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 	// Return the raw key once — it is never retrievable again after this response.
+	// created_at uses the same RFC 3339 encoding as the list endpoint.
 	jsonOK(w, map[string]string{
 		"id":         key.ID,
 		"key":        rawKey,
 		"label":      key.Label,
-		"created_at": key.CreatedAt.String(),
+		"created_at": key.CreatedAt.Format(time.RFC3339Nano),
 	})
 }
 

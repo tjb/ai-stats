@@ -1,0 +1,25 @@
+# The image is built only from backend/ and frontend/ sources, so the build
+# context is an allowlist: everything else (.git, .beads, .claude worktrees,
+# .env files, docs) never leaves your machine. If the Dockerfile ever needs
+# another top-level path, re-include it here with a "!" line.
+*
+!backend
+!frontend
+
+# Build output and dependencies are rebuilt inside the image.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+backend/bin
+
+# Secrets and local config.
+**/.env
+**/.env.*
+**/*.pem
+
+# Editor, OS and tooling noise.
+**/.DS_Store
+**/.vscode
+**/.idea
+**/*.log
+**/coverage

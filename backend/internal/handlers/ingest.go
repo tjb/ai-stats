@@ -47,7 +47,7 @@ var planningTools = map[string]bool{
 // ingestEvent is a single event in the ingest request payload.
 type ingestEvent struct {
 	Type            string `json:"type"`
-	ToolName        string `json:"tool_name"`      // for tool_use events
+	ToolName        string `json:"tool_name"` // for tool_use events
 	LinesWritten    int    `json:"lines_written"`
 	DurationMinutes int    `json:"duration_minutes"`
 	UserEmail       string `json:"user_email"`
@@ -196,8 +196,8 @@ func (h *IngestHandler) PostEvents(w http.ResponseWriter, r *http.Request) {
 		apiKey.OrganizationID,
 		req.ToolSource,
 		date,
-		totalSuggestions,  // total_suggestions — tool uses (tool_use events)
-		totalAcceptances,  // total_acceptances — edit tool uses (edit rate numerator)
+		totalSuggestions,   // total_suggestions — tool uses (tool_use events)
+		totalAcceptances,   // total_acceptances — edit tool uses (edit rate numerator)
 		totalLines,         // total_lines_accepted
 		len(distinctUsers), // total_active_users — distinct hashed emails
 		0,                  // total_licensed_users — not known from push ingest

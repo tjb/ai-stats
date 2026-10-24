@@ -1,15 +1,45 @@
 import { useState, useEffect } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  type DotItemDotProps,
+} from 'recharts'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { api, type InsightsResponse, type PlanningTrendPoint } from '../api/client'
 import { USE_MOCK, mockInsights } from '../api/mock'
 import { formatCurrency, formatHours } from '../lib/utils'
+import { formatTooltipValue, tooltipFormatter } from '../lib/chartTooltip'
 import { MetricCard } from '../components/dashboard/MetricCard'
 
 const TOOL_LABELS: Record<string, string> = {
   copilot: 'GitHub Copilot',
   claude_code: 'Claude Code',
   codex: 'OpenAI Codex',
+}
+
+const formatActiveUsersTooltip = tooltipFormatter((v) => `${v} users`, 'Active Users')
+const formatUtilizationTooltip = tooltipFormatter((v) => `${v}%`, 'Utilization')
+
+// Planning trend dot; low-volume days (< 5 tool uses) are dimmed.
+function PlanningTrendDot({ cx, cy, payload }: DotItemDotProps) {
+  const point: PlanningTrendPoint = payload
+  const lowVolume = point.planning_uses + point.coding_uses < 5
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={3}
+      fill="#8b5cf6"
+      stroke="#8b5cf6"
+      opacity={lowVolume ? 0.4 : 1}
+    />
+  )
 }
 
 function WoWBadge({ current, prev }: { current: number; prev: number }) {
@@ -230,8 +260,9 @@ export function InsightsPage() {
                   }}
                   labelStyle={{ color: '#f8fafc', fontSize: 11 }}
                   itemStyle={{ color: '#c4b5fd', fontSize: 11 }}
-                  formatter={(value: number, name: string) => {
-                    if (name === 'planning_ratio_percent') return [`${Number(value).toFixed(1)}%`, 'Planning ratio']
+                  formatter={(value, name) => {
+                    if (name === 'planning_ratio_percent')
+                      return [formatTooltipValue(value, (v) => `${v.toFixed(1)}%`), 'Planning ratio']
                     if (name === 'planning_uses') return [value, 'Planning uses']
                     if (name === 'coding_uses') return [value, 'Coding uses']
                     return [value, name]
@@ -242,26 +273,7 @@ export function InsightsPage() {
                   dataKey="planning_ratio_percent"
                   stroke="#8b5cf6"
                   strokeWidth={2}
-                  dot={(props: {
-                    cx: number
-                    cy: number
-                    payload: PlanningTrendPoint
-                    index: number
-                  }) => {
-                    const { cx, cy, payload } = props
-                    const lowVolume = payload.planning_uses + payload.coding_uses < 5
-                    return (
-                      <circle
-                        key={`dot-${payload.date}`}
-                        cx={cx}
-                        cy={cy}
-                        r={3}
-                        fill="#8b5cf6"
-                        stroke="#8b5cf6"
-                        opacity={lowVolume ? 0.4 : 1}
-                      />
-                    )
-                  }}
+                  dot={PlanningTrendDot}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -312,7 +324,7 @@ export function InsightsPage() {
                   }}
                   labelStyle={{ color: '#f8fafc' }}
                   itemStyle={{ color: '#c4b5fd' }}
-                  formatter={(v: number) => [`${v} users`, 'Active Users']}
+                  formatter={formatActiveUsersTooltip}
                 />
                 <Bar dataKey="active_users" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -365,7 +377,7 @@ export function InsightsPage() {
               }}
               labelStyle={{ color: '#f8fafc' }}
               itemStyle={{ color: '#c4b5fd' }}
-              formatter={(v: number) => [`${v} users`, 'Active Users']}
+              formatter={formatActiveUsersTooltip}
             />
             <Bar dataKey="users" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
           </BarChart>
@@ -425,7 +437,7 @@ export function InsightsPage() {
                   }}
                   labelStyle={{ color: '#f8fafc', fontSize: 11 }}
                   itemStyle={{ color: '#c4b5fd', fontSize: 11 }}
-                  formatter={(v: number) => [`${v}%`, 'Utilization']}
+                  formatter={formatUtilizationTooltip}
                 />
               </LineChart>
             </ResponsiveContainer>

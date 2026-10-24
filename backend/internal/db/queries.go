@@ -477,14 +477,21 @@ func (q *Queries) GetAllSnapshots(ctx context.Context, orgID string, days int) (
 // GetUtilizationStats returns the aggregate AI user count and total coding developers
 // over the last `days` days, across all tool sources.
 // Returns (aiUsers, totalDevs) as the numerator and best-estimate denominator.
+// Both are peak-day headcounts: daily counts are not summed across days, since
+// the same developers show up every day.
 func (q *Queries) GetUtilizationStats(ctx context.Context, orgID string, days int) (aiUsers, totalDevs int, err error) {
 	err = q.pool.QueryRow(ctx, `
 		SELECT
-		    COALESCE(SUM(total_active_users), 0)                                      AS ai_users,
-		    COALESCE(MAX(total_coding_developers) FILTER (WHERE total_coding_developers > 0), 0) AS total_devs
-		FROM tool_usage_snapshots
-		WHERE organization_id = $1
-		  AND date >= CURRENT_DATE - ($2::int - 1)
+		    COALESCE(MAX(day_users), 0) AS ai_users,
+		    COALESCE(MAX(day_devs), 0)  AS total_devs
+		FROM (
+		    SELECT SUM(total_active_users)      AS day_users,
+		           MAX(total_coding_developers) AS day_devs
+		    FROM tool_usage_snapshots
+		    WHERE organization_id = $1
+		      AND date >= CURRENT_DATE - ($2::int - 1)
+		    GROUP BY date
+		) per_day
 	`, orgID, days).Scan(&aiUsers, &totalDevs)
 	if err != nil {
 		return 0, 0, fmt.Errorf("GetUtilizationStats: %w", err)
@@ -534,16 +541,22 @@ func (q *Queries) GetUtilizationTrend(ctx context.Context, orgID string, days in
 }
 
 // GetUtilizationStatsPriorWindow returns the aggregate AI user count and total
-// coding developers for the prior 30-day window (days -59 to -29).
+// coding developers for the prior 30-day window (days -59 to -29), as peak-day
+// headcounts like GetUtilizationStats.
 func (q *Queries) GetUtilizationStatsPriorWindow(ctx context.Context, orgID string) (aiUsers, totalDevs int, err error) {
 	err = q.pool.QueryRow(ctx, `
 		SELECT
-		    COALESCE(SUM(total_active_users), 0)                                      AS ai_users,
-		    COALESCE(MAX(total_coding_developers) FILTER (WHERE total_coding_developers > 0), 0) AS total_devs
-		FROM tool_usage_snapshots
-		WHERE organization_id = $1
-		  AND date >= CURRENT_DATE - 59
-		  AND date < CURRENT_DATE - 29
+		    COALESCE(MAX(day_users), 0) AS ai_users,
+		    COALESCE(MAX(day_devs), 0)  AS total_devs
+		FROM (
+		    SELECT SUM(total_active_users)      AS day_users,
+		           MAX(total_coding_developers) AS day_devs
+		    FROM tool_usage_snapshots
+		    WHERE organization_id = $1
+		      AND date >= CURRENT_DATE - 59
+		      AND date < CURRENT_DATE - 29
+		    GROUP BY date
+		) per_day
 	`, orgID).Scan(&aiUsers, &totalDevs)
 	if err != nil {
 		return 0, 0, fmt.Errorf("GetUtilizationStatsPriorWindow: %w", err)
@@ -577,7 +590,8 @@ func (q *Queries) GetActiveToolSources(ctx context.Context, orgID string) ([]str
 }
 
 // GetCombinedSnapshots aggregates both copilot_usage_snapshots and tool_usage_snapshots
-// by date, returning the UsageSnapshot shape the dashboard expects. This lets the
+// by date, returning the most recent `limit` days, oldest first, in the UsageSnapshot
+// shape the dashboard expects. This lets the
 // dashboard show accurate metrics regardless of which tools the org uses.
 // Copilot breakdown_json is preserved when present; other tools contribute to totals only.
 func (q *Queries) GetCombinedSnapshots(ctx context.Context, orgID string, limit int) ([]UsageSnapshot, error) {
@@ -619,11 +633,13 @@ func (q *Queries) GetCombinedSnapshots(ctx context.Context, orgID string, limit 
 		        WHERE organization_id = $1
 		    ) all_data
 		    GROUP BY date
+		    -- Keep the most recent days; the outer query re-sorts them ascending.
+		    ORDER BY date DESC
+		    LIMIT $2
 		) combined
 		LEFT JOIN copilot_usage_snapshots cop
 		       ON cop.organization_id = $1 AND cop.date = combined.date
 		ORDER BY combined.date ASC
-		LIMIT $2
 	`, orgID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("GetCombinedSnapshots: %w", err)
@@ -660,13 +676,13 @@ type ToolBreakdownRow struct {
 	LinesAccepted int    `json:"lines_accepted"`
 }
 
-// GetToolBreakdown returns per-tool aggregated active users and lines accepted
-// for the last `days` days, ordered by active users descending.
+// GetToolBreakdown returns per-tool peak daily active users and total lines
+// accepted for the last `days` days, ordered by active users descending.
 func (q *Queries) GetToolBreakdown(ctx context.Context, orgID string, days int) ([]ToolBreakdownRow, error) {
 	rows, err := q.pool.Query(ctx, `
 		SELECT
 		    tool_source,
-		    SUM(total_active_users)::int   AS active_users,
+		    MAX(total_active_users)::int   AS active_users,
 		    SUM(total_lines_accepted)::int AS lines_accepted
 		FROM tool_usage_snapshots
 		WHERE organization_id = $1

@@ -181,9 +181,11 @@ func (h *ReportsHandler) Generate(w http.ResponseWriter, r *http.Request) {
 		totalSuggested int
 		copilotUsers   int
 	)
+	var totalAcceptances int
 	for _, s := range copilotSnaps {
 		totalAccepted += s.TotalLinesAccepted
 		totalSuggested += s.TotalSuggestions
+		totalAcceptances += s.TotalAcceptances
 		if s.TotalActiveUsers > copilotUsers {
 			copilotUsers = s.TotalActiveUsers
 		}
@@ -220,9 +222,11 @@ func (h *ReportsHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	estimatedHoursSaved := float64(totalAccepted) / 30.0
 	estimatedValueSaved := estimatedHoursSaved * float64(user.HourlyRate)
 
+	// Acceptances per suggestion, as on the dashboard. (Accepted lines per
+	// suggestion mixes units and can exceed 100%.)
 	var acceptanceRate float64
 	if totalSuggested > 0 {
-		acceptanceRate = float64(totalAccepted) / float64(totalSuggested) * 100
+		acceptanceRate = float64(totalAcceptances) / float64(totalSuggested) * 100
 	}
 
 	var planningRatio float64
@@ -232,7 +236,7 @@ func (h *ReportsHandler) Generate(w http.ResponseWriter, r *http.Request) {
 
 	var adoptionRate *float64
 	if org.GithubMemberCount != nil && *org.GithubMemberCount > 0 {
-		rate := float64(activeDevelopers) / float64(*org.GithubMemberCount+1) * 100
+		rate := float64(activeDevelopers) / float64(*org.GithubMemberCount) * 100
 		adoptionRate = &rate
 	}
 

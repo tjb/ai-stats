@@ -13,9 +13,9 @@ type DashboardHandler struct {
 }
 
 type DashboardResponse struct {
-	Org           orgSummary       `json:"org"`
-	Metrics       dashboardMetrics `json:"metrics"`
-	Charts        dashboardCharts  `json:"charts"`
+	Org     orgSummary       `json:"org"`
+	Metrics dashboardMetrics `json:"metrics"`
+	Charts  dashboardCharts  `json:"charts"`
 }
 
 type orgSummary struct {
@@ -27,22 +27,22 @@ type orgSummary struct {
 }
 
 type dashboardMetrics struct {
-	ActiveUsers         int     `json:"active_users"`
-	ActiveUsersChange   int     `json:"active_users_change"`
-	AcceptanceRate      float64 `json:"acceptance_rate"`
+	ActiveUsers          int     `json:"active_users"`
+	ActiveUsersChange    int     `json:"active_users_change"`
+	AcceptanceRate       float64 `json:"acceptance_rate"`
 	AcceptanceRateChange float64 `json:"acceptance_rate_change"`
-	LinesAccepted       int     `json:"lines_accepted"`
-	LinesAcceptedChange int     `json:"lines_accepted_change"`
-	HoursSaved          float64 `json:"hours_saved"`
-	DollarValueSaved    float64 `json:"dollar_value_saved"`
-	HourlyRate          int     `json:"hourly_rate"`
+	LinesAccepted        int     `json:"lines_accepted"`
+	LinesAcceptedChange  int     `json:"lines_accepted_change"`
+	HoursSaved           float64 `json:"hours_saved"`
+	DollarValueSaved     float64 `json:"dollar_value_saved"`
+	HourlyRate           int     `json:"hourly_rate"`
 }
 
 type dashboardCharts struct {
-	AcceptanceRate []chartPoint         `json:"acceptance_rate"`
-	ActiveUsers    []activeUserPoint    `json:"active_users"`
-	Suggestions    []suggestionPoint    `json:"suggestions"`
-	Languages      []languageRatePoint  `json:"languages"`
+	AcceptanceRate []chartPoint        `json:"acceptance_rate"`
+	ActiveUsers    []activeUserPoint   `json:"active_users"`
+	Suggestions    []suggestionPoint   `json:"suggestions"`
+	Languages      []languageRatePoint `json:"languages"`
 }
 
 type chartPoint struct {
@@ -142,7 +142,11 @@ func (h *DashboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 	tp := sum(prev30)
 
 	ar := roi.AcceptanceRate(t30.acceptances, t30.suggestions)
-	prevAR := roi.AcceptanceRate(tp.acceptances, tp.suggestions)
+	// Like roi.PctChange, report no change when there is no prior period.
+	var arChange float64
+	if tp.suggestions > 0 {
+		arChange = ar - roi.AcceptanceRate(tp.acceptances, tp.suggestions)
+	}
 	roiResult := roi.Calculate(t30.linesAccepted, user.HourlyRate)
 
 	// Build chart data from all snapshots (up to 90)
@@ -156,10 +160,15 @@ func (h *DashboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 		sugChart = append(sugChart, suggestionPoint{Date: d, Suggestions: s.TotalSuggestions, Acceptances: s.TotalAcceptances})
 	}
 
-	// Language breakdown from last snapshot
+	// Language breakdown from the most recent snapshot that has one. Only
+	// Copilot reports languages, and its data lags push-ingested sources.
 	langChart := []languageRatePoint{}
-	if len(snapshots) > 0 {
-		last := snapshots[len(snapshots)-1]
+	lastIdx := len(snapshots) - 1
+	for lastIdx >= 0 && len(snapshots[lastIdx].BreakdownJSON) == 0 {
+		lastIdx--
+	}
+	if lastIdx >= 0 {
+		last := snapshots[lastIdx]
 		langMap := map[string]struct{ s, a int }{}
 		for _, b := range last.BreakdownJSON {
 			k := b.Language
@@ -202,7 +211,7 @@ func (h *DashboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 			ActiveUsers:          t30.maxUsers,
 			ActiveUsersChange:    roi.PctChange(t30.maxUsers, tp.maxUsers),
 			AcceptanceRate:       ar,
-			AcceptanceRateChange: ar - prevAR,
+			AcceptanceRateChange: arChange,
 			LinesAccepted:        t30.linesAccepted,
 			LinesAcceptedChange:  roi.PctChange(t30.linesAccepted, tp.linesAccepted),
 			HoursSaved:           roiResult.HoursSaved,

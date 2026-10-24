@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
-
-	"github.com/tjb/ai-stats/internal/db"
 )
 
 // ---- GitHub API response types ----
@@ -207,16 +206,53 @@ type claudeCodeRawJSON struct {
 
 // ---- Main sync function ----
 
+// claudeCodeStore is the subset of db.Queries used by SyncClaudeCodeAttribution.
+type claudeCodeStore interface {
+	GetClaudeCodeAttributedSHAs(ctx context.Context, orgID string, date time.Time) ([]string, error)
+	UpsertToolSnapshot(ctx context.Context, orgID, toolSource string, date time.Time,
+		totalSuggestions, totalAcceptances, totalLinesAccepted,
+		totalActiveUsers, totalLicensedUsers, totalCodingDevelopers int,
+		totalPlanningUses, totalCodingUses int,
+		rawJSON json.RawMessage) error
+}
+
 // SyncClaudeCodeAttribution scans the last 24 hours of commits across all repos in
 // the GitHub org identified by orgLogin, identifies commits attributed to Claude Code
 // via git trailers, aggregates them by date, and upserts the results into
 // tool_usage_snapshots keyed by orgID (the internal UUID).
-func SyncClaudeCodeAttribution(ctx context.Context, orgID, orgLogin, token string, queries *db.Queries) (int, error) {
+//
+// UpsertToolSnapshot adds to the stored totals and consecutive runs scan
+// overlapping windows, so commits already listed in a day's
+// raw_json.attributed_commits are not counted again. Concurrent runs for the
+// same org can still double-count; Service.SyncClaudeCode serialises them.
+func SyncClaudeCodeAttribution(ctx context.Context, orgID, orgLogin, token string, queries claudeCodeStore) (int, error) {
 	since := time.Now().UTC().Add(-24 * time.Hour)
 
 	repos, err := listOrgRepos(ctx, orgLogin, token)
 	if err != nil {
 		return 0, fmt.Errorf("SyncClaudeCodeAttribution list repos: %w", err)
+	}
+
+	// counted caches, per day, the SHAs earlier runs already added to the totals.
+	counted := map[string][]string{}
+	countedSHAs := map[string]struct{}{}
+	loadCounted := func(dayKey string) ([]string, error) {
+		if shas, ok := counted[dayKey]; ok {
+			return shas, nil
+		}
+		date, err := time.Parse("2006-01-02", dayKey)
+		if err != nil {
+			return nil, err
+		}
+		shas, err := queries.GetClaudeCodeAttributedSHAs(ctx, orgID, date)
+		if err != nil {
+			return nil, fmt.Errorf("SyncClaudeCodeAttribution load counted commits %s: %w", dayKey, err)
+		}
+		counted[dayKey] = shas
+		for _, sha := range shas {
+			countedSHAs[sha] = struct{}{}
+		}
+		return shas, nil
 	}
 
 	// Map from date string (YYYY-MM-DD) → accumulated data.
@@ -287,6 +323,18 @@ func SyncClaudeCodeAttribution(ctx context.Context, orgID, orgLogin, token strin
 				continue
 			}
 
+			// Already counted by an earlier run: keep its author in the distinct
+			// count, but don't fetch it or add it to the totals again.
+			if _, err := loadCounted(dayKey); err != nil {
+				return 0, err
+			}
+			if _, ok := countedSHAs[c.SHA]; ok {
+				if c.Author != nil && c.Author.Login != "" {
+					bucket.authors[c.Author.Login] = struct{}{}
+				}
+				continue
+			}
+
 			detail, err := fetchCommitDetail(ctx, orgLogin, repoName, c.SHA, token)
 			if err != nil {
 				log.Printf("SyncClaudeCodeAttribution: detail fetch %s: %v", c.SHA, err)
@@ -325,10 +373,17 @@ func SyncClaudeCodeAttribution(ctx context.Context, orgID, orgLogin, token strin
 			continue
 		}
 
-		shaList := make([]string, 0, len(bucket.shas))
+		// Keep the SHAs earlier runs counted so later runs keep skipping them.
+		prevSHAs, err := loadCounted(dayKey)
+		if err != nil {
+			return upserted, err
+		}
+		shaList := make([]string, 0, len(prevSHAs)+len(bucket.shas))
+		shaList = append(shaList, prevSHAs...)
 		for sha := range bucket.shas {
 			shaList = append(shaList, sha)
 		}
+		sort.Strings(shaList)
 
 		rawPayload := claudeCodeRawJSON{
 			AttributedCommits: shaList,
@@ -339,9 +394,9 @@ func SyncClaudeCodeAttribution(ctx context.Context, orgID, orgLogin, token strin
 			return upserted, fmt.Errorf("SyncClaudeCodeAttribution marshal raw: %w", err)
 		}
 
-		numCommits    := len(bucket.shas)
-		numAIAuthors  := len(bucket.authors)
-		numAllDevs    := len(bucket.allAuthors)
+		numCommits := len(bucket.shas)
+		numAIAuthors := len(bucket.authors)
+		numAllDevs := len(bucket.allAuthors)
 
 		if err := queries.UpsertToolSnapshot(
 			ctx,
